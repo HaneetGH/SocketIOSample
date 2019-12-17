@@ -13,23 +13,33 @@ import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
 import com.github.nkzawa.socketio.client.Socket;
 
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.w3c.dom.Text;
 
 import java.net.URISyntaxException;
+import java.util.Arrays;
+
+import io.reactivex.Observable;
+import io.reactivex.Observer;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
+import kotlin.text.Charsets;
+import moe.codeest.rxsocketclient.RxSocketClient;
+import moe.codeest.rxsocketclient.SocketClient;
+import moe.codeest.rxsocketclient.SocketSubscriber;
+import moe.codeest.rxsocketclient.meta.SocketConfig;
+import moe.codeest.rxsocketclient.meta.SocketOption;
+import moe.codeest.rxsocketclient.meta.ThreadStrategy;
 
 public class MainActivity extends AppCompatActivity {
     int i = 0;
+    final String TAG = "SOCKET CONNECTION";
     TextView send, rec;
-    private Socket socket;
 
-    {
-        try {
-            socket = IO.socket("http://e236eaed.ngrok.io");
-        } catch (URISyntaxException e) {
-        }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,78 +47,33 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         connectView();
         Log.d("socketio---->", "start");
-
-        socket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
-
-            @Override
-            public void call(Object... args) {
-                Log.d("socketio---->", "socket connected");
-                socket.emit("chat message",
-                        "even connect: message sent from android to socketio server");
-                // socket.disconnect(); // why is there a disconnect here?
-            }
-        }).on(Socket.EVENT_MESSAGE, new Emitter.Listener() {
-
-            @Override
-            public void call(Object... arg0) {
-                // TODO Auto-generated method stub
-                rec.setText(arg0[0].toString());
-                Log.d("socketio---->", "socket event message" + arg0);
-
-            }
-        });
-
-        // 2nd segment test without connecting to 1 long method
-        socket.on(Socket.EVENT_CONNECT_ERROR, new Emitter.Listener() {
-            @Override
-            public void call(Object... arg0) {
-                // TODO Auto-generated method stub
-                Log.d("socketio---->", "socket event connect error");
-
-            }
-        });
-
-        socket.on("newsget", new Emitter.Listener() {
-
-            @Override
-            public void call(final Object... arg0) {
-                // TODO Auto-generated method stub
-                Log.d("socketio---->", "socket event message" + arg0);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        rec.setText(arg0[0].toString());
-                        // add the message to view
-
-                    }
-                });
-            }
-        });
-
-        socket.on("news", new Emitter.Listener() {
-
-            @Override
-            public void call(final Object... arg0) {
-                // TODO Auto-generated method stub
-                Log.d("socketio---->", "socket event news" + arg0[0]);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        rec.setText(arg0[0].toString());
-                        // add the message to view
-
-                    }
-                });
-                socket.emit("news",
-                        arg0[0].toString());
-            }
-        });
-
-        socket.connect();
+        customSocket();
     }
 
+    private void customSocket() {
+        conenct().subscribe(new Observer<Object>() {
+            @Override
+            public void onSubscribe(Disposable d) {
+
+            }
+
+            @Override
+            public void onNext(Object o) {
+                Log.d("Connection Type", ((SocketModel) o).getType() + "");
+                Log.d("Connection Message ", ((SocketModel) o).getMessage());
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d("Connection ", e.toString());
+            }
+
+            @Override
+            public void onComplete() {
+
+            }
+        });
+    }
 
     private void connectView() {
         send = (TextView) findViewById(R.id.textView3);
@@ -129,37 +94,10 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         this.send.setText(send);
-        socket.emit("news", message,socket.id());
+        // socket.emit("news", message, socket.id());
     }
 
-    private Emitter.Listener onNewMessage = new Emitter.Listener() {
-        @Override
-        public void call(final Object... args) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    JSONObject data = (JSONObject) args[0];
-                    String username;
-                    String message;
-                    try {
-                        username = data.getString("username");
-                        message = data.getString("message");
-                    } catch (JSONException e) {
-                        return;
-                    }
-                    rec.setText(message);
-                    // add the message to view
-
-                }
-            });
-        }
-    };
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-
-        socket.disconnect();
-        //socket.off("news", onNewMessage);
+    public static Observable<Object> conenct() {
+        return new CustomObserable();
     }
 }
